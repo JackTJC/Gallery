@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>横向拖动相册</title>
+    <style>
+        /* --- 基础样式 --- */
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #fff;
+            /* 强制横向滚动条不出现，因为我们用JS控制溢出 */
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* --- 主容器 --- */
+        .album-carousel {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            cursor: grab; /* 提示用户可以拖动 */
+            display: flex;
+            align-items: center; /* 垂直居中相册轨道 */
+        }
+
+        .album-carousel.active {
+            cursor: grabbing; /* 拖动时的鼠标样式 */
+        }
+
+        /* --- 相册轨道 (这个元素会移动) --- */
+        .album-track {
+            display: flex; /* 让相册横向排列 */
+            gap: 40px; /* 相册之间的间距 */
+            padding: 0 40px; /* 轨道两边的内边距 */
+            /* 禁用默认的用户选择行为，防止拖动时选中文字或图片 */
+            user-select: none;
+            /* 键盘切换时的平滑过渡效果 */
+            transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* --- 单个相册项 --- */
+        .album-item {
+            position: relative;
+            flex-shrink: 0; /* 防止相册被压缩 */
+            width: 40vh; /* 宽度相对于视窗高度，保持比例 */
+            height: 60vh; /* 高度相对于视窗高度 */
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-decoration: none;
+            color: white;
+        }
+
+        .album-item:hover {
+            transform: scale(1.05) translateY(-10px); /* 鼠标悬停时放大并上移 */
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+        }
+
+        /* --- 相册封面图 --- */
+        .album-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 让图片填满容器且不变形 */
+            transition: filter 0.3s ease;
+            pointer-events: none; /* 防止图片干扰鼠标拖动事件 */
+        }
+
+        .album-item:hover img {
+            filter: brightness(1.1);
+        }
+
+        /* --- 相册标题 --- */
+        .album-title {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 24px 20px;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+        }
+        
+        /* --- 提示信息 --- */
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.5);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            pointer-events: none; /* 让鼠标可以穿透此元素 */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="album-carousel" id="carousel">
+        <div class="album-track" id="track">
+            <!-- 在这里添加你的相册 -->
+            <a href="album.html?album=galaxy" class="album-item">
+                <img src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1470" alt="湖泊">
+                <div class="album-title">仰望星空</div>
+            </a>
+            <a href="album.html?album=moutain" class="album-item">
+                <img src="https://images.unsplash.com/photo-1551632811-561732d1e306?q=80&w=1470" alt="雪山">
+                <div class="album-title">巍峨雪山</div>
+            </a>
+            <a href="#wetland" class="album-item">
+                <img src="https://images.unsplash.com/photo-1503614472-8c93d56e92ce?q=80&w=1470" alt="湿地">
+                <div class="album-title">晨雾湿地</div>
+            </a>
+            <a href="#desert" class="album-item">
+                <img src="https://images.unsplash.com/photo-1473580044384-7ba9967e16a0?q=80&w=1470" alt="沙漠">
+                <div class="album-title">金色沙漠</div>
+            </a>
+            <a href="#forest" class="album-item">
+                <img src="https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1470" alt="森林">
+                <div class="album-title">幽深森林</div>
+            </a>
+            <a href="#coast" class="album-item">
+                <img src="https://images.unsplash.com/photo-1493558103817-58b2924bce98?q=80&w=1534" alt="海岸">
+                <div class="album-title">壮丽海岸</div>
+            </a>
+            <a href="#aurora" class="album-item">
+                <img src="https://images.unsplash.com/photo-1531366936337-7c912a4589a7?q=80&w=1470" alt="极光">
+                <div class="album-title">梦幻极光</div>
+            </a>
+            <!-- 可以继续添加更多相册 -->
+        </div>
+    </div>
+    
+    <div class="instructions">
+        按住鼠标拖动，或使用键盘 ← → 方向键浏览
+    </div>
+
+    <script>
+        const carousel = document.getElementById('carousel');
+        const track = document.getElementById('track');
+        const items = Array.from(track.children);
+
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+        
+        // --- 鼠标拖动逻辑 ---
+
+        carousel.addEventListener('mousedown', (e) => {
+            isDown = true;
+            carousel.classList.add('active');
+            // 禁用平滑过渡，让拖动立即响应
+            track.style.transition = 'none'; 
+            startX = e.pageX - carousel.offsetLeft;
+            scrollLeft = track.getBoundingClientRect().x;
+        });
+
+        carousel.addEventListener('mouseleave', () => {
+            isDown = false;
+            carousel.classList.remove('active');
+        });
+
+        carousel.addEventListener('mouseup', () => {
+            isDown = false;
+            carousel.classList.remove('active');
+            
+            // 拖动结束后，重新启用平滑过渡
+            track.style.transition = 'transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1)';
+        });
+
+        carousel.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - carousel.offsetLeft;
+            const walk = (x - startX) * 1.5; // 乘以1.5可以增加拖动速度
+            
+            const currentTransform = scrollLeft + walk;
+            track.style.transform = `translateX(${currentTransform}px)`;
+        });
+
+        // --- 键盘导航逻辑 ---
+        
+        let currentIndex = 0;
+
+        const updatePosition = () => {
+            // 计算每个项目的总宽度（项目宽度 + 间距）
+            const itemWidth = items[0].offsetWidth;
+            const gap = parseInt(window.getComputedStyle(track).gap, 10);
+            const totalItemWidth = itemWidth + gap;
+            
+            // 计算新的 transform 值
+            // 我们希望当前项的左侧边缘大致在屏幕的某个位置，例如左侧20%
+            const screenOffset = window.innerWidth * 0.2; 
+            const newTransform = -currentIndex * totalItemWidth + screenOffset;
+            
+            track.style.transform = `translateX(${newTransform}px)`;
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                // 如果已经是最后一项，则不再前进
+                if (currentIndex < items.length - 1) {
+                    currentIndex++;
+                    updatePosition();
+                }
+            } else if (e.key === 'ArrowLeft') {
+                // 如果已经是第一项，则不再后退
+                if (currentIndex > 0) {
+                    currentIndex--;
+                    updatePosition();
+                }
+            }
+        });
+        
+        // 初始化位置
+        window.addEventListener('load', updatePosition);
+        window.addEventListener('resize', updatePosition); // 窗口大小变化时也更新位置
+
+    </script>
+</body>
+</html>
