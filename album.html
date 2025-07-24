@@ -1,188 +1,24 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>相册</title>
     <!-- 引入 marked.js 库 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        /* --- 基础与黑暗主题 --- */
-        :root {
-            --background-color: #1a1a1a;
-            --text-color: #e0e0e0;
-            --primary-color: #00aaff;
-            --heading-color: #ffffff;
-            --subtle-text-color: #888888;
-            --card-background: #252525;
-        }
-
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.8;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            margin: 0;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        /* --- 布局容器 --- */
-        .container {
-            max-width: 900px; /* 增加内容最大宽度，更适合阅读 */
-            margin: 60px auto;
-            padding: 0 30px;
-            /* 添加加载动画 */
-            opacity: 0;
-            transform: translateY(20px);
-            animation: fadeInUp 0.8s 0.2s ease-out forwards;
-        }
-
-        @keyframes fadeInUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* --- 返回链接 --- */
-        .back-link {
-            display: inline-block;
-            margin-bottom: 40px;
-            text-decoration: none;
-            color: var(--primary-color);
-            font-weight: 500;
-            transition: color 0.3s ease;
-        }
-        .back-link:hover {
-            color: var(--heading-color);
-        }
-
-        /* --- Markdown 内容的现代化样式 --- */
-        .album-content h1 {
-            font-size: 3rem; /* 大标题 */
-            color: var(--heading-color);
-            line-height: 1.2;
-            margin-bottom: 1rem;
-            border-bottom: none; /* 去掉丑陋的下划线 */
-        }
-
-        .album-content p {
-            font-size: 1.1rem;
-            margin-bottom: 2rem;
-        }
-
-        /* 图片是主角！*/
-        .album-content img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 12px; /* 更柔和的圆角 */
-            display: block;
-            margin: 50px 0; /* 增加图片上下的间距 */
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6); /* 突出的阴影效果 */
-        }
-        
-        /* 针对图片下的斜体文字，作为图片说明 */
-        .album-content p > em {
-            display: block;
-            text-align: center;
-            color: var(--subtle-text-color);
-            font-size: 0.9rem;
-            margin-top: -35px; /* 让说明文字离图片更近 */
-            margin-bottom: 50px;
-        }
-
-        .album-content hr {
-            border: none;
-            height: 1px;
-            background-color: #333;
-            margin: 60px 0;
-        }
-
-        .loading, .error {
-            text-align: center;
-            font-size: 1.2em;
-            color: var(--subtle-text-color);
-            padding: 50px 0;
-        }
-    </style>
+    <link rel="stylesheet" href="css/album.css">
 </head>
-<body>
 
+<body>
     <div class="container">
         <a href="index.html" class="back-link">← 返回所有相册</a>
-        
+
         <div id="album-content" class="album-content">
             <p class="loading">正在加载相册...</p>
         </div>
     </div>
-
-    <script>
-    // JavaScript 部分，增加了智能图片加载逻辑
-    document.addEventListener('DOMContentLoaded', async () => {
-        const contentDiv = document.getElementById('album-content');
-        
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const albumName = params.get('album');
-            if (!albumName) { throw new Error('未指定相册名称。'); }
-            
-            const filePath = `galleries/${albumName}.md`;
-            const response = await fetch(filePath);
-            if (!response.ok) { throw new Error(`无法加载相册文件: ${response.statusText}`); }
-            
-            const markdownText = await response.text();
-            
-            const titleMatch = markdownText.match(/^#\s+(.*)/);
-            if (titleMatch && titleMatch[1]) {
-                document.title = titleMatch[1] + " - 我的相册";
-            }
-
-            // 1. 将 Markdown 正常解析为 HTML 字符串
-            let htmlContent = marked.parse(markdownText);
-
-            // 2. 获取容器的渲染宽度，并计算目标宽度（考虑 Retina 屏，乘以 1.5）
-            const containerWidth = contentDiv.clientWidth;
-            const targetWidth = Math.round(containerWidth * 1.5);
-
-            // 3. 定义腾讯云 COS 图片处理参数
-            // 推荐使用 webp 格式以获得最佳性能
-            const cosParams = `?imageView2/2/w/${targetWidth}/q/85/format/webp`;
-
-            // 4. 使用正则表达式查找所有图片链接，并为其追加参数
-            // 这个正则表达式会捕获 <img src=" 和 " 中间的 URL 部分
-            const imgRegex = /(<img src=")([^"]+?)(")/g;
-            
-            htmlContent = htmlContent.replace(imgRegex, (match, p1, p2, p3) => {
-                // p1 是 '<img src="'
-                // p2 是原始 URL
-                // p3 是 '"'
-                
-                // 检查 URL 是否已经有查询参数
-                const separator = p2.includes('?') ? '&' : '?';
-                
-                // 如果原始链接就是COS链接，则追加参数；否则保持原样（以防万一有非COS图片）
-                if (p2.includes('.myqcloud.com')) {
-                    // 我们使用 p2 + cosParams.replace('?','&') 如果已经有?
-                    // 但为了简单，这里我们假设原始COS链接没有参数
-                    return p1 + p2 + cosParams + p3;
-                } else {
-                    return match; // 不是COS链接，不处理
-                }
-            });
-
-            // 5. 将【处理后】的 HTML 注入到页面
-            contentDiv.innerHTML = htmlContent;
-
-        } catch (error) {
-            console.error('加载失败:', error);
-            contentDiv.innerHTML = `<p class="error">抱歉，加载相册失败。请检查文件是否存在或稍后再试。</p>`;
-        }
-    });
-    </script>
+    <script src="js/album.js" defer></script>
 </body>
+
 </html>
